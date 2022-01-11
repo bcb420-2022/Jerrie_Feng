@@ -1,0 +1,74 @@
+---
+title: "R Notebook - Jerrie Feng"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+Task 5 in R basics: https://bcb420-2022.github.io/R_basics/r-install.html#task-4---create-your-first-notebook-using-docker
+
+I had to add `chunk_output_type: console` above because the plot would keep showing up inline instead on in the plot window (because of html_notebook option). This caused an error of `plot.new has not been called yet`. Therefore, I had to make it plot in the windows to fix the error.  
+
+```{r}
+
+library() #shows all packages
+
+search() #see which ones are loaded
+
+?vignette #? is to get help
+
+#install seqinr
+install.packages("seqinr",repos="https://cran.rstudio.com/")  
+
+library(seqinr) #load package seqinr
+ls("package:seqinr") #all functions
+?seqinr::a 
+seqinr::a("Tyr") #converts AA codon into 1 letter
+
+?seqinr::words #get all possible combo of words from given alphabet
+seqinr::words(3, c("A", "G", "C", "U"))
+
+```
+
+Results for `seqinr::words(3, c("A", "G", "C", "U"))` is > seqinr::words(3, c("A", "G", "C", "U"))
+ [1] "AAA" "AAG" "AAC" "AAU" "AGA" "AGG" "AGC" "AGU"
+ [9] "ACA" "ACG" "ACC" "ACU" "AUA" "AUG" "AUC" "AUU"
+[17] "GAA" "GAG" "GAC" "GAU" "GGA" "GGG" "GGC" "GGU"
+[25] "GCA" "GCG" "GCC" "GCU" "GUA" "GUG" "GUC" "GUU"
+[33] "CAA" "CAG" "CAC" "CAU" "CGA" "CGG" "CGC" "CGU"
+[41] "CCA" "CCG" "CCC" "CCU" "CUA" "CUG" "CUC" "CUU"
+[49] "UAA" "UAG" "UAC" "UAU" "UGA" "UGG" "UGC" "UGU"
+[57] "UCA" "UCG" "UCC" "UCU" "UUA" "UUG" "UUC" "UUU"
+
+```{r}
+
+#get avalible data & load it
+data(package="seqinr")
+data(aaindex, package="seqinr")
+
+#we get 2 indices from the data
+aaindex$FASG890101 
+aaindex$PONJ960101
+
+#and then plot it & add labels/text to the plot
+#function 'text' did not work at first, had to modify
+#showed error of 'a' not being a function
+plot(aaindex$FASG890101$I,
+     aaindex$PONJ960101$I,
+     xlab="hydrophobicity", ylab="volume", type="n")
+text(aaindex$FASG890101$I,
+     aaindex$PONJ960101$I,
+     labels=seqinr::a(names(aaindex$FASG890101$I)))
+
+#to check if the package is installed (only install if it's not there)
+if (! requireNamespace("seqinr", quietly=TRUE)) {
+  install.packages("seqinr")
+}
+
+
+
+
+```
+
+
+
