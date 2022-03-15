@@ -3,21 +3,18 @@ title: "Assignment #1 - Data set selection and initial Processing"
 author: "Jerrie Feng"
 output:
   html_document:
-    toc: yes
     df_print: paged
-  html_notebook:
-    toc: yes
 
 ---
 
-## Download Data 
+## Download Data
 
 ```{r}
 #Install necessary packages if not already
 
 if (!requireNamespace("GEOmetadb", quietly = TRUE)) {
   BiocManager::install("GEOmetadb")
-}   
+}  
 if (!requireNamespace("GEOquery", quietly = TRUE)) {
   BiocManager::install("GEOquery")
 }
@@ -33,7 +30,15 @@ if (! requireNamespace("readr", quietly = TRUE)) {
   BiocManager::install("readr")
 }
 
-if(!file.exists('GEOmetadb.sqlite')) GEOmetadb::getSQLiteFile()
+#if(!file.exists('GEOmetadb.sqlite')) GEOmetadb::getSQLiteFile()
+
+library(GEOmetadb)
+library(GEOquery)
+library(BiocManager)
+library(edgeR)
+library(biomaRt)
+library(readr)
+library(Biobase)
 
 ```
 
@@ -42,7 +47,7 @@ if(!file.exists('GEOmetadb.sqlite')) GEOmetadb::getSQLiteFile()
 #Only download if needed
 
 if (!file.exists("GSE135448.rds")) {
-  
+ 
   #Download files from GEO
   GEOfolder <- paste0("./", "GSE135448") ###
   supfiles <- GEOquery::getGEOSuppFiles("GSE135448")
@@ -54,7 +59,6 @@ if (!file.exists("GSE135448.rds")) {
   supfiles <- readRDS("GSE135448.rds")
 }
 
-RSQLite::dbDisconnect(con)
 
 # Use the 'counts' file
 files <- rownames(supfiles)
@@ -64,38 +68,41 @@ data <- read.delim(files[2],header=TRUE, check.names = FALSE)
 
 
 ## Assess Data
-Based on the paper, we see that we have 19 participants/samples with obesity undergoing bariatric surgery. They were randomized into 2 diets, low protein and a high protein. We see from the GSE info gotten, that the first half of the samples (first 9) were given high protein diets, and the other half (last 10) were given low diets. 
+Based on the paper, we see that we have 19 participants/samples with obesity undergoing bariatric surgery. They were randomized into 2 diets, low protein and a high protein. We see from the GSE info gotten, that the first half of the samples (first 9) were given high protein diets, and the other half (last 10) were given low diets.
 
 ```{r}
 #Obtain the description for our data
 infoGSE <- GEOquery::getGEO("GSE135448", GSEMatrix=FALSE)
 
-#Sort the samples into 2 diets
-highprotein <- data[2:10]
-rownames(highprotein) <- data[,1]
-lowprotein <- data[11:20]
-rownames(lowprotein) <- data[,1]
+#Group according to experiment conditions - sort into 2 diets
+#For some reason, the LowProtein/HighProtein conditions aren't labelled on the given column names. So must split manually.  
+samples <- data.frame(
+  samples = colnames(data)[2:20],
+  diettype = rep(c("HP", "LP", "LP"), each = 9, length.out = 19)
+)
 
 ```
 
+
 ## Clean Data
-We want to filter out the low counts and remove duplicates. We also want to plot the data to get more information. 
+We want to filter out the low counts and remove duplicates. We also want to plot the data to get more information.
 
 ```{r}
 #Genes count
 dim(data)[1]
 
+#Check for duplicates 
+dim(data[duplicated(data$genesymbol),])[1]
+
 #Remove the low counts with edgeR
-cpmData <- edgeR::cpm(data[2:19])
+cpmData <- edgeR::cpm(data[2:20])
 rownames(cpmData) <- data[,1]
 
-keep <- rowSums(cpmData >1) >=10
+#Dataset split into 2 groups: 9 samples in 1, and 10 samples in other
+#Let's use 10 as the threshold -> recommended by edgeR to use number of replication
+#Filter low counts
+keep <- rowSums(cpmData >1) >= 10
 filterData = data[keep,]
-
-repeated <- filterData[duplicated(rownames(filterData)), ]
-
-#Check for duplicates
-dim(filterData[duplicated(filterData$genesymbol),])[1]
 
 #Gene count after filter
 dim(filterData)[1]
@@ -105,104 +112,133 @@ dim(filterData)[1]
 ```{r}
 #Visualizing the data
 
-#Boxplot for using uncleaned data counts 
-boxplot(log2(edgeR::cpm(data[,2:19])), xlab = "Samples", ylab = "log2 CPM", las=2, cex.axis=0.9, 
+#Boxplot for using uncleaned data counts
+boxplot(log2(edgeR::cpm(data[,2:20])), xlab = "Samples", ylab = "log2 CPM", las=2, cex.axis=0.9,
         main="Boxplot before cleaning data")
 
-#Boxplot for using cleaned data counts 
-boxplot(log2(edgeR::cpm(filterData[,2:19])), xlab = "Samples", ylab = "log2 (CPM)", las=2, cex.axis=0.9, 
+#Boxplot for using cleaned data counts
+boxplot(log2(edgeR::cpm(filterData[,2:20])), xlab = "Samples", ylab = "log2 (CPM)", las=2, cex.axis=0.9,
         main="Boxplot after cleaning data")
 ```
 
+
 ## Map to HUGO
-This data actually provided the HGNC gene symbols, so there's no need to convert. However, we will check it again to see if any do not match the HUGO format. 
+This data actually provided the HGNC gene symbols, so there's no need to convert. However, we will check it again to see if any do not match the HUGO format.
 
 ```{r}
 #Let's get the HGNC symbols and see how many of them matched to a gene symbol
 ensembl <- biomaRt::useMart("ensembl")
-ensembl_haspiens <- biomaRt::useDataset("hsapiens_gene_ensembl", mart=ensembl)
+ensembl <- biomaRt::useDataset("hsapiens_gene_ensembl", mart=ensembl)
 symbolMatch <- biomaRt::getBM(attributes = "hgnc_symbol",
    filters = c("hgnc_symbol"),
-   values = data$genesymbol,
-   mart = ensembl_haspiens)
+   values = filterData$genesymbol,
+   mart = ensembl)
 
 # Check the percentage unmatched
-unmatch <- 1-dim(symbolMatch)[1]
-percent <- (unmatch / dim(filterData)[1])*100
+unmatch <- dim(symbolMatch)[1]
+percent <- (1 - unmatch/dim(filterData)[1])*100
 
 ```
-From the calculation, we see that around 26.95% of the given gene symbols are not in the expected HUGO format. However, there doesn't seem to be a way to match the old symbols, but they can still be found in the HUGO database. 
+From the calculation, we see that around 10.73% of the given gene symbols are not in the expected HUGO format. However, there doesn't seem to be a way to match the old symbols, but they can still be found in the HUGO database.
 
 
 ## Normalization
+Normalize data using what was taught in class.
 
 ```{r}
-matrix <- as.matrix(filterData[,2:19])
-rownames(matrix) <- filterData$hgnc_symbol
-dValue <- edgeR::DGEList(counts=matrix, group=c(colnames(filterData)[2:19]))
+matrix <- as.matrix(filterData[,2:20])
+rownames(matrix) <- filterData$genesymbol
+dValue <- edgeR::DGEList(counts=matrix, group=samples$diettype)
 
 #Get normalization factors
 dValue <- edgeR::calcNormFactors(dValue)
 normData <- edgeR::cpm(dValue)
 
-#Pre-normalization
-density <- apply(log2(edgeR::cpm(filterData[2:19])), 2, density)
 
-xl <- 0
-yl <- 0
+# Pre-normalization
+pre_density <- apply(log2(edgeR::cpm(filterData[2:20])), 2, density)
+
+xlim <- 0
+ylim <- 0
+for (i in 1:length(pre_density)) {
+  xlim <- range(c(xlim, pre_density[[i]]$x))
+  ylim <- range(c(ylim, pre_density[[i]]$y))
+}
+cols <- cm.colors(length(pre_density))
+ltys <- rep(1, length(pre_density))
+    
+plot(pre_density[[1]], xlim=xlim, ylim=ylim, ylab="density", xlab = "log2 CPM", type="n", cex.lab = 0.8, main="Pre-normalization")
+
+for (i in 1:length(pre_density)){
+  lines(pre_density[[i]], col=cols[i])
+}
+
+legend("topright", colnames(filterData[2:20]),  
+           col=cols, lty=ltys, cex=0.75, 
+           border ="blue",  text.col = "green4", 
+           merge = TRUE, bg = "gray90") 
+
+
+# After normalization
+density <- apply(log2(normData), 2, density)
+
+xlim <- 0
+ylim <- 0
 for (i in 1:length(density)) {
-  xlim <- range(c(xl, density[[i]]$x))
-  ylim <- range(c(yl, density[[i]]$y))
+  xlim <- range(c(xlim, density[[i]]$x))
+  ylim <- range(c(ylim, density[[i]]$y))
 }
+cols <- cm.colors(length(density))
+ltys <- rep(1, length(density))
+ 
+plot(density[[1]], xlim=xlim, ylim=ylim, ylab="density", xlab = "log2 CPM", main="After normalization")
 
-plot(density[[1]], xlim=xlim, ylim=ylim, ylab="density", xlab = "log2 CPM")
-dCol<- cm.colors(length(density))
 for (i in 1:length(density)){
-  lines(density[[i]], col=dCol[i])
+  lines(density[[i]], col=cols[i])
 }
 
-#After normalization
-densityNorm <- apply(log2(normData), 2, density)
+legend("topright", colnames(filterData[2:20]),  
+           col=cols, lty=ltys, cex=0.75, 
+           border ="blue",  text.col = "green4", 
+           merge = TRUE, bg = "gray90") 
 
-xl <- 0
-yl <- 0
-for (i in 1:length(densityNorm)) {
-  xlim <- range(c(xl, densityNorm[[i]]$x))
-  ylim <- range(c(yl, densityNorm[[i]]$y))
-}
 
-plot(densityNorm[[1]], xlim=xlim, ylim=ylim, ylab="density", xlab = "log2 CPM")
-dCol<- cm.colors(length(densityNorm))
-for (i in 1:length(densityNorm)){
-  lines(densityNorm[[i]], col=dCol[i])
-}
-
+#save
+saveRDS(normData, file="projects/GSE135448_normalized_counts.RDS")
+saveRDS(filterData, file="projects/GSE135448_filtered.RDS")
 ```
 
 
 ## Document Questions
 1. What are the control and test conditions of the dataset?
-This was a Randomized Controlled Trial (RCT) in which 19 patients with obesity undergoing bariatric surgery were randomized into 2 diet groups, a low protein (10E% protein) and a high protein (30E% protein), for three weeks prior to surgery. We are testing/comparing the RNA-seq analyses performed on liver samples (Intrahepatic lipid levels (IHL) and serum fibroblast growth factor 21 (FGF21)). 
+
+This was a Randomized Controlled Trial (RCT) in which 19 patients with obesity undergoing bariatric surgery were randomized into 2 diet groups, a low protein (10E% protein) and a high protein (30E% protein), for three weeks prior to surgery. We are testing/comparing the RNA-seq analyses performed on liver samples (Intrahepatic lipid levels (IHL) and serum fibroblast growth factor 21 (FGF21)).
+
 
 2. Why is the dataset of interest to you?
-I'm interested in this dataset because I'm interested in nutrition and its impact on our health. 
+
+I'm interested in this dataset because I'm interested in nutrition and its impact on our health.
+
 
 3. Were there expression values that were not unique for specific genes? How did you handle these?
-There were not any, but there were some with too low values, and I did not include these. 
+
+There were not any, but there were some with too low values, and I did not include these.
+
 
 4. Were there expression values that could not be mapped to current HUGO symbols?
+
 Yes, there was 26.95% of the values that couldn't be mapped.
 
+
 5. How many outliers were removed?
-Based on the boxplot, it can be seen that the only those lower than 1 cpm, with a threshold of 10, were removed. 
+
+Based on the boxplot, it can be seen that the only those lower than 1 cpm, with a threshold of 10, were removed.
 
 6. How did you handle replicates?
+
 I filtered through
 
+
 7. What is the final coverage of your dataset?
+
 13369
-
-
-
-
-
