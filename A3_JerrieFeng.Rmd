@@ -120,7 +120,7 @@ legend("topright", colnames(filterData[2:20]),
 
 # Final normalized data results saved
 if (!file.exists("GSE135448_normalized_counts.RDS")) {
-  saveRDS(normalized_cleaned_gata3, "GSE135448_normalized_counts.RDS")
+  saveRDS(normData, "GSE135448_normalized_counts.RDS")
 }
 
 ```
