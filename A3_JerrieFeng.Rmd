@@ -12,7 +12,7 @@ output:
 <br>
 
 # Introduction
-(This file is called "A3_bcb420.Rmd" in my docker file, I wasn't able to rename. It's uploaded with the proper naming on Github, hope that's alright.)
+(This file is called "A3_bcb420.Rmd" in my docker file, I couldn't rename it. It's uploaded with the proper naming on Github, hope that's alright.)
 
 The dataset chosen is GSE135448, and it explores whether low protein(LP) or highprotein(HP) diets are more effective in reducing liver fat and reversing NAFLD. The data contains 19 samples in which half are LP samples and the other half are HP samples.
 
