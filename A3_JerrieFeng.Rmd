@@ -452,6 +452,12 @@ As there are lots of information and it is somewhat cluttered, I tried to differ
 
 <br>
 
+# Links to Github journal
+* [Journal for A3](https://github.com/bcb420-2022/Jerrie_Feng/wiki/Journal-6:-Assignment-3)
+* [Links to A1/A2 related files - these were sourced at the beginning](https://github.com/bcb420-2022/Jerrie_Feng)
+
+<br>
+
 # References
 1. Xu C, Markova M, Seebeck N, Loft A, Hornemann S, Gantert T, Kabisch S, Herz K, Loske J, Ost M, Coleman V, Klauschen F, Rosenthal A, Lange V, Machann J, Klaus S, Grune T, Herzig S, Pivovarova-Ramich O, Pfeiffer AFH. "High-protein diet more effectively reduces hepatic fat than low-protein diet despite lower autophagy and FGF21 levels". Liver Int. 2020 Dec;40(12):2982-2997. (2020). doi: 10.1111/liv.14596. Epub 2020 Jul 21. PMID: 32652799.
 
